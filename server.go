@@ -17,11 +17,11 @@ import (
 type ProtocolType string
 
 const (
-	BADIU_STD ProtocolType = "BAIDU_STD"
+	PROTO_BAIDU_STD ProtocolType = "BAIDU_STD"
 )
 
 type ServerOptions struct {
-	Protocol string
+	Protocol ProtocolType
 	Addr     string
 	logger   log.Logger
 }
@@ -447,7 +447,14 @@ func (s *Server) Accept(lis net.Listener) {
 		if err != nil {
 			return
 		}
-		go s.ServeConn(conn)
+		if s.options.Protocol == PROTO_BAIDU_STD {
+			var codec = &BaiduStdServerCodec{
+				rwc: conn,
+			}
+			go s.ServeCodec(codec)
+		} else {
+			go s.ServeConn(conn)
+		}
 	}
 }
 

@@ -75,6 +75,7 @@ type BaiduStdServerCodec struct {
 	nextSeq uint64
 	reqMap  sync.Map
 	currReq *BaiduStdRpcProtocol
+	closed  bool
 }
 
 func (c *BaiduStdServerCodec) AddRequest(req *BaiduStdRpcProtocol) uint64 {
@@ -177,5 +178,9 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 }
 
 func (c *BaiduStdServerCodec) Close() error {
-	return nil
+	if c.closed {
+		return nil
+	}
+	c.closed = true
+	return c.rwc.Close()
 }
