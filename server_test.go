@@ -1,7 +1,7 @@
 package brpc
 
 import (
-	"net"
+	// "net"
 	"testing"
 )
 
@@ -39,9 +39,11 @@ func TestRegister(t *testing.T) {
 	var arith Arith
 	srv.Register(arith)
 
-	var listener, err = net.Listen("tcp", "localhost:8080")
-	if err != nil {
-		t.Error(err)
-	}
-	srv.Accept(listener)
+	/*
+		var listener, err = net.Listen("tcp", "localhost:8080")
+		if err != nil {
+			t.Error(err)
+		}
+		srv.Accept(listener)
+	*/
 }

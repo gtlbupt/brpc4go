@@ -64,7 +64,7 @@ func (h *BaiduStdRpcHeader) Unmarshal(data []byte) error {
 	return nil
 }
 
-type BaiduStdRpcProtocol struct {
+type BaiduRpcStdProtocol struct {
 	Header BaiduStdRpcHeader
 	Meta   RpcMeta
 	Data   []byte
@@ -74,19 +74,32 @@ type BaiduStdServerCodec struct {
 	rwc     io.ReadWriteCloser
 	nextSeq uint64
 	reqMap  sync.Map
-	currReq *BaiduStdRpcProtocol
+	currReq *BaiduRpcStdProtocol
 	closed  bool
 }
 
-func (c *BaiduStdServerCodec) AddRequest(req *BaiduStdRpcProtocol) uint64 {
+func (c *BaiduStdServerCodec) AddRequest(req *BaiduRpcStdProtocol) uint64 {
 	var seq = atomic.AddUint64(&c.nextSeq, 1)
 	c.reqMap.Store(seq, req)
 	c.currReq = req
 	return seq
 }
 
+func (c *BaiduStdServerCodec) GetRequest(seq uint64) *BaiduRpcStdProtocol {
+	reqInter, ok := c.reqMap.Load(seq)
+	if !ok {
+		return nil
+	}
+
+	if req, ok := reqInter.(*BaiduRpcStdProtocol); ok {
+		return req
+	} else {
+		return nil
+	}
+}
+
 func (c *BaiduStdServerCodec) ReadRequestHeader(r *Request) error {
-	var req = &BaiduStdRpcProtocol{}
+	var req = &BaiduRpcStdProtocol{}
 
 	var l = req.Header.GetHeaderLen()
 	var buf = make([]byte, 0, l)
@@ -137,7 +150,7 @@ func (c *BaiduStdServerCodec) ReadRequestBody(request interface{}) error {
 func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) error {
 	var seq = resp.Seq
 	var reqInter, ok = c.reqMap.Load(seq)
-	var req = reqInter.(BaiduStdRpcProtocol)
+	var req = reqInter.(BaiduRpcStdProtocol)
 
 	if !ok {
 		return errors.New("Bad Response")

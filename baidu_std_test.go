@@ -64,30 +64,6 @@ func TestBaiduStdRpcHeader(t *testing.T) {
 	})
 }
 
-func TestMarshalUnmarshal(t *testing.T) {
-	var body_size uint32 = 1
-	var meta_size uint32 = 2
-	var src = BaiduStdRpcHeader{
-		BodySize: body_size,
-		MetaSize: meta_size,
-	}
-
-	data, err := src.Marshal()
-	if err != nil {
-		t.Error(err)
-	}
-
-	var dst = BaiduStdRpcHeader{}
-	if err := dst.Unmarshal(data); err != nil {
-		t.Errorf("[data:%v][err:%v]", data, err)
-	}
-
-	if src.BodySize != dst.BodySize ||
-		src.MetaSize != dst.MetaSize {
-		t.Error(src)
-	}
-}
-
 func TestRpcRequestMeta(t *testing.T) {
 	var src = &RpcRequestMeta{
 		ServiceName: proto.String("LogicService"),
@@ -111,8 +87,24 @@ func TestRpcRequestMeta(t *testing.T) {
 	}
 }
 
-func TestRpcResponseMeta(t *testing.T) {
-}
+func TestBaiduStdServerCodec(t *testing.T) {
+	t.Run("AddRequest", func(t *testing.T) {
+		var req = &BaiduRpcStdProtocol{}
+		var codec = &BaiduStdServerCodec{}
+		var seq = codec.AddRequest(req)
+		var targetReq = codec.GetRequest(seq)
+		if targetReq != req {
+			t.Errorf("codec.GetRequest(%d) = %v, expect = %v",
+				seq, targetReq, req)
+		}
 
-func TestRpcMeta(t *testing.T) {
+		{
+			seq++
+			var targetReq = codec.GetRequest(seq)
+			if targetReq != nil {
+				t.Errorf("codec.GetRequest(%d) = %v, expect = %v",
+					seq, targetReq, nil)
+			}
+		}
+	})
 }
