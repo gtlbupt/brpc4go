@@ -5,6 +5,65 @@ import (
 	"testing"
 )
 
+func TestBaiduStdRpcHeader(t *testing.T) {
+	var metaSize = 1024
+	var bodySize = 2048
+	var header = BaiduStdRpcHeader{
+		MetaSize: uint32(metaSize),
+		BodySize: uint32(bodySize),
+	}
+
+	t.Run("GetHeaderLen", func(t *testing.T) {
+		if header.GetHeaderLen() != BAIDU_STD_RPC_MSG_HEADER_LEN {
+			t.Errorf("h.GetHeaderLen() = %d, expect = %d",
+				header.GetHeaderLen(), BAIDU_STD_RPC_MSG_HEADER_LEN)
+		}
+	})
+
+	t.Run("GetMetaSize", func(t *testing.T) {
+		if header.GetMetaSize() != metaSize {
+			t.Errorf("h.GetMetaSize() = %d, expect = %d",
+				header.GetMetaSize(), metaSize)
+		}
+	})
+
+	t.Run("GetBodySize", func(t *testing.T) {
+		if header.GetBodySize() != bodySize {
+			t.Errorf("h.GetBodySize() = %d, expect = %d",
+				header.GetBodySize(), bodySize)
+		}
+	})
+
+	t.Run("MarshalUnmarshal", func(t *testing.T) {
+		var metaSize = 1024
+		var bodySize = 2048
+		var header = BaiduStdRpcHeader{
+			MetaSize: uint32(metaSize),
+			BodySize: uint32(bodySize),
+		}
+		buf, err := header.Marshal()
+		if err != nil || len(buf) != header.GetHeaderLen() {
+			t.Errorf("(%v).Marshal() = %v",
+				header, err)
+		}
+
+		var target = &BaiduStdRpcHeader{}
+		if err := target.Unmarshal(buf); err != nil {
+			t.Errorf("(%v).Unmarshl(%v) = %v",
+				target, buf, err)
+		}
+
+		if target.GetMetaSize() != metaSize {
+			t.Errorf("(%v).GetMetaSize() = %d, expect = %d",
+				target, target.GetMetaSize(), metaSize)
+		}
+		if target.GetBodySize() != bodySize {
+			t.Errorf("(%v).GetBodySize() = %d, expect = %d",
+				target, target.GetBodySize(), bodySize)
+		}
+	})
+}
+
 func TestMarshalUnmarshal(t *testing.T) {
 	var body_size uint32 = 1
 	var meta_size uint32 = 2
