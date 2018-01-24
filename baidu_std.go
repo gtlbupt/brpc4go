@@ -22,24 +22,24 @@ const (
 	BAIDU_STD_MAGIC_STRING       = "PRPC"
 )
 
-type BaiduStdRpcHeader struct {
+type BaiduRpcStdProtocolHeader struct {
 	BodySize uint32
 	MetaSize uint32
 }
 
-func (h *BaiduStdRpcHeader) GetHeaderLen() int {
+func (h *BaiduRpcStdProtocolHeader) GetHeaderLen() int {
 	return BAIDU_STD_RPC_MSG_HEADER_LEN
 }
 
-func (h *BaiduStdRpcHeader) GetMetaSize() int {
+func (h *BaiduRpcStdProtocolHeader) GetMetaSize() int {
 	return int(h.MetaSize)
 }
 
-func (h *BaiduStdRpcHeader) GetBodySize() int {
+func (h *BaiduRpcStdProtocolHeader) GetBodySize() int {
 	return int(h.BodySize)
 }
 
-func (h *BaiduStdRpcHeader) Marshal() ([]byte, error) {
+func (h *BaiduRpcStdProtocolHeader) Marshal() ([]byte, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0, BAIDU_STD_RPC_MSG_HEADER_LEN))
 
 	binary.Write(buf, binary.LittleEndian, []byte(BAIDU_STD_MAGIC_STRING))
@@ -49,7 +49,7 @@ func (h *BaiduStdRpcHeader) Marshal() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (h *BaiduStdRpcHeader) Unmarshal(data []byte) error {
+func (h *BaiduRpcStdProtocolHeader) Unmarshal(data []byte) error {
 	if len(data) < BAIDU_STD_RPC_MSG_HEADER_LEN {
 		return errors.New("Bad RPC Header Length")
 	}
@@ -65,9 +65,50 @@ func (h *BaiduStdRpcHeader) Unmarshal(data []byte) error {
 }
 
 type BaiduRpcStdProtocol struct {
-	Header BaiduStdRpcHeader
+	Header BaiduRpcStdProtocolHeader
 	Meta   RpcMeta
 	Data   []byte
+}
+
+func (p *BaiduRpcStdProtocol) Marshal() ([]byte, error) {
+	var s [][]byte
+	var sep []byte
+
+	headerBuf, err := p.Header.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	s = append(s, headerBuf)
+
+	metaBuf, err := proto.Marshal(&p.Meta)
+	if err != nil {
+		return nil, err
+	}
+	s = append(s, metaBuf)
+
+	s = append(s, p.Data)
+
+	return bytes.Join(s, sep), nil
+}
+
+func (p *BaiduRpcStdProtocol) Unmarshal(data []byte) error {
+	if err := p.Header.Unmarshal(data); err != nil {
+		return err
+	}
+
+	if len(data) < p.Header.GetHeaderLen()+p.Header.GetMetaSize() {
+		return errors.New("Bad Meta Len")
+	}
+	var start = p.Header.GetHeaderLen()
+	var end = p.Header.GetHeaderLen() + p.Header.GetMetaSize()
+	metaBuf := data[start:end]
+
+	if err := proto.Unmarshal(metaBuf, &p.Meta); err != nil {
+		return err
+	}
+
+	p.Data = data[end:]
+	return nil
 }
 
 type BaiduStdServerCodec struct {
@@ -174,7 +215,7 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 		return err
 	}
 
-	var respHeader = BaiduStdRpcHeader{
+	var respHeader = BaiduRpcStdProtocolHeader{
 		BodySize: uint32(len(bodyBuf)),
 		MetaSize: uint32(len(metaBuf)),
 	}
