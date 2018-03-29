@@ -1,49 +1,76 @@
 package brpc
 
 import (
-	// "net"
+	"errors"
+	"net"
 	"testing"
 )
-
-func TestNewServer(t *testing.T) {
-	var options = ServerOptions{
-		Protocol: PROTO_BAIDU_STD,
-		Addr:     ":8080",
-	}
-	var srv = NewServer(options)
-
-	if srv == nil {
-		t.Errorf("NewServer(%v) = nil", options)
-	}
-}
-
-type Arith int
 
 type Args struct {
 	A int
 	B int
 }
 
+type Quotient struct {
+	Quo int
+	Rem int
+}
+
+type Arith int
+
 func (t *Arith) Multiply(args *Args, reply *int) error {
 	*reply = args.A * args.B
 	return nil
 }
 
-func TestRegister(t *testing.T) {
+func (t *Arith) Divide(args *Args, quo *Quotient) error {
+	if args.B == 0 {
+		return errors.New("divide by zero")
+	}
+
+	quo.Quo = args.A / args.B
+	quo.Rem = args.A % args.B
+
+	return nil
+}
+
+func newFakeServer() (*Server, error) {
+	var protocol = "tcp"
+	var port = ":8080"
+	ln, err := net.Listen(protocol, port)
+	if err != nil {
+		return nil, err
+	}
+
 	var options = ServerOptions{
 		Protocol: PROTO_BAIDU_STD,
-		Addr:     ":8080",
+		Lis:      ln,
 	}
 	var srv = NewServer(options)
 
-	var arith Arith
-	srv.Register(arith)
+	return srv, nil
+}
 
-	/*
-		var listener, err = net.Listen("tcp", "localhost:8080")
+func TestNewServer(t *testing.T) {
+	var srv, err = newFakeServer()
+	if err != nil {
+		t.Errorf("newFakeServer() = %v", err)
+	}
+	defer srv.Close()
+	if srv == nil {
+		t.Errorf("NewServer() = nil")
+	}
+	t.Run("AddService", func(t *testing.T) {
+		var serviceImpl = new(Arith)
+		var err = srv.AddService(serviceImpl)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("server.AddService(AddServiceImpl) = %v", err)
 		}
-		srv.Accept(listener)
-	*/
+	})
+	t.Run("Start", func(t *testing.T) {
+		var err = srv.Start()
+		if err != nil {
+			t.Errorf("server.Start() = %v", err)
+		}
+	})
 }

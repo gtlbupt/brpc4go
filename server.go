@@ -7,75 +7,23 @@ import (
 	"errors"
 	"io"
 	"log"
-	"net"
 	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 )
 
-type ProtocolType string
-
-const (
-	PROTO_BAIDU_STD ProtocolType = "BAIDU_STD"
-)
-
-type ServerOptions struct {
-	Protocol ProtocolType
-	Addr     string
-	logger   log.Logger
-}
-
-func (options *ServerOptions) Valid() bool {
-	return true
-}
-
 // Precompute the reflect type for error. Can't use error directly
 // because Typeof takes an empty interface value. This is annoying.
 var typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-
-type methodType struct {
-	method    reflect.Method
-	ArgType   reflect.Type
-	ReplyType reflect.Type
-	numCalls  int64
-}
-
-type service struct {
-	name   string                 // name of service
-	rcvr   reflect.Value          // receiver of methods for the service
-	typ    reflect.Type           // type of the receiver
-	method map[string]*methodType // registered methods
-}
-
-// Request is a header written before every RPC call. It is used internally
-// but documented here as an aid to debugging, such as when analyzing
-// network traffic.
-type Request struct {
-	ServiceMethod string   // format: "Service.Method"
-	Seq           uint64   // sequence number by client
-	next          *Request // for free list in Server
-}
-
-// Response is a header written before every RPC return. It is used intenrnally
-// but documented here as an aid to debugging, such as when anylyzing
-// network traffic.
-type Response struct {
-	ServiceMethod string    // echoes that of the Request
-	Seq           uint64    // echoes that of the Request
-	Error         string    // error, if any
-	next          *Response // for free list in Server
-}
 
 // Server represents an RPC Server
 type Server struct {
 	serviceMap sync.Map // map[string]*service
 
-	reqLock sync.Mutex // protects freeReq
-	freeReq *Request
+	freeReq RequestList
 
-	respLock sync.Mutex // protects freeResp
-	freeResp *Response
+	freeResp ResponseList
 
 	options ServerOptions
 	closed  chan struct{}
@@ -90,83 +38,44 @@ func NewServer(options ServerOptions) *Server {
 	return s
 }
 
-func (s *Server) Init(options ServerOptions) error {
-	if !options.Valid() {
-		return errors.New("Bad Options")
-	}
-	s.options = options
-	return nil
+func (srv *Server) Close() {
+	srv.options.Lis.Close()
+	close(srv.closed)
 }
 
 // @DONE.
-func (srv *Server) Register(rcvr interface{}) error {
-	s := new(service)
-	s.typ = reflect.TypeOf(rcvr)
-	s.rcvr = reflect.ValueOf(rcvr)
-	sname := reflect.Indirect(s.rcvr).Type().Name()
-	if sname == "" {
-		return errors.New("Bad Service Name")
-	}
-	s.name = sname
+func (srv *Server) AddService(rcvr interface{}) error {
+	var service = NewService()
+	service.Install(rcvr)
 
-	// install the methods
-
-	s.method = suitableMethods(s.typ, true)
-
-	if len(s.method) == 0 {
-		return errors.New("Type Has Not Export Method")
-	}
-
-	if _, dup := srv.serviceMap.LoadOrStore(sname, s); dup {
+	if _, dup := srv.serviceMap.LoadOrStore(service.GetName(), service); dup {
 		return errors.New("rpc: service already defined")
 	}
 
 	return nil
 }
 
-func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
-	methods := make(map[string]*methodType)
-	for m := 0; m < typ.NumMethod(); m++ {
-		method := typ.Method(m)
-		mtype := method.Type
-		mname := method.Name
+func (srv *Server) Start() error {
+	go srv.startImpl()
+	return nil
+}
 
-		// Method must be exported
-		if method.PkgPath != "" {
-			continue
+func (srv *Server) startImpl() {
+	var lis = srv.options.Lis
+	for {
+		conn, err := lis.Accept()
+		if err != nil {
+			return
 		}
-
-		// Method needs three ins: receiver, *args, *replay
-		if mtype.NumIn() != 3 {
-			continue
+		if srv.options.Protocol == PROTO_BAIDU_STD {
+			var codec = &BaiduStdServerCodec{
+				rwc: conn,
+			}
+			go srv.ServeCodec(codec)
+		} else {
+			go srv.ServeConn(conn)
 		}
-
-		argType := mtype.In(1)
-
-		if !isExportedOrBuiltinType(argType) {
-			continue
-		}
-
-		replyType := mtype.In(2)
-		if replyType.Kind() != reflect.Ptr {
-			continue
-		}
-
-		// ReplyType Must be exported
-		if !isExportedOrBuiltinType(replyType) {
-			continue
-		}
-
-		if mtype.NumOut() != 1 {
-			continue
-		}
-
-		if returnType := mtype.Out(0); returnType != typeOfError {
-			continue
-		}
-		methods[mname] = &methodType{method: method, ArgType: argType, ReplyType: replyType}
 	}
-	return methods
 }
 
 // A value sent as a placeholder for the server's response value when the server
@@ -193,10 +102,6 @@ func (s *Server) sendResponse(sending *sync.Mutex, req *Request, reply interface
 	s.freeResponse(resp)
 }
 
-func (m *methodType) NumCalls() int64 {
-	return atomic.LoadInt64(&m.numCalls)
-}
-
 func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, mtype *methodType, req *Request, argv, replyv reflect.Value, codec ServerCodec) {
 	if wg != nil {
 		defer wg.Done()
@@ -217,46 +122,6 @@ func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, 
 	server.freeRequest(req)
 }
 
-type gobServerCodec struct {
-	rwc    io.ReadWriteCloser
-	dec    *gob.Decoder
-	enc    *gob.Encoder
-	encBuf *bufio.Writer
-	closed bool
-}
-
-func (c *gobServerCodec) ReadRequestHeader(r *Request) error {
-	return c.dec.Decode(r)
-}
-
-func (c *gobServerCodec) ReadRequestBody(body interface{}) error {
-	return c.dec.Decode(body)
-}
-
-func (c *gobServerCodec) WriteResponse(r *Response, body interface{}) (err error) {
-	if err = c.enc.Encode(r); err != nil {
-		if c.encBuf.Flush() == nil {
-			c.Close()
-		}
-		return
-	}
-	if err = c.enc.Encode(body); err != nil {
-		if c.encBuf.Flush() == nil {
-			c.Close()
-		}
-		return
-	}
-	return c.encBuf.Flush()
-}
-
-func (c *gobServerCodec) Close() error {
-	if c.closed {
-		return nil
-	}
-	c.closed = true
-	return c.rwc.Close()
-}
-
 // ServeConn runs the Server on a single connection.
 // ServeConn blocks, serving the connection until the client hangs up.
 // The caller typically invokes ServeConn in a go statement.
@@ -273,30 +138,26 @@ func (server *Server) ServeConn(conn io.ReadWriteCloser) {
 	server.ServeCodec(srv)
 }
 
-// ServerCodec is like ServeConn but uses the specified codec to
-// decode requests and encode responses.
-func (server *Server) ServeCodec(codec ServerCodec) {
+func (srv *Server) ServeCodec(codec ServerCodec) {
+	var server = srv
 	sending := new(sync.Mutex)
-	var wg sync.WaitGroup
-
+	wg := new(sync.WaitGroup)
 	for {
 		service, mtype, req, argv, replyv, keepReading, err := server.readRequest(codec)
 		if err != nil {
 			if !keepReading {
 				break
 			}
-
-			// send a response if we actually managed to read a header
 			if req != nil {
-				server.sendResponse(sending, req, invalidRequest, codec, err.Error())
+				server.sendResponse(
+					sending, req, invalidRequest, codec, err.Error())
 				server.freeRequest(req)
 			}
 			continue
 		}
 		wg.Add(1)
-		go service.call(server, sending, &wg, mtype, req, argv, replyv, codec)
+		go service.call(server, sending, wg, mtype, req, argv, replyv, codec)
 	}
-
 	wg.Wait()
 	codec.Close()
 }
@@ -322,43 +183,19 @@ func (server *Server) ServeRequest(codec ServerCodec) error {
 }
 
 func (server *Server) getRequest() *Request {
-	server.reqLock.Lock()
-	req := server.freeReq
-	if req == nil {
-		req = new(Request)
-	} else {
-		server.freeReq = req.next
-		*req = Request{}
-	}
-	server.reqLock.Unlock()
-	return req
+	return server.freeReq.Get()
 }
 
 func (server *Server) freeRequest(req *Request) {
-	server.reqLock.Lock()
-	req.next = server.freeReq
-	server.freeReq = req
-	server.reqLock.Unlock()
+	server.freeReq.Put(req)
 }
 
 func (server *Server) getResponse() *Response {
-	server.respLock.Lock()
-	resp := server.freeResp
-	if resp == nil {
-		resp = new(Response)
-	} else {
-		server.freeResp = resp.next
-		*resp = Response{}
-	}
-	server.respLock.Unlock()
-	return resp
+	return server.freeResp.Get()
 }
 
 func (server *Server) freeResponse(resp *Response) {
-	server.respLock.Lock()
-	resp.next = server.freeResp
-	server.freeResp = resp
-	server.respLock.Unlock()
+	server.freeResp.Put(resp)
 }
 
 func (server *Server) readRequest(codec ServerCodec) (service *service, mtype *methodType, req *Request, argv, replyv reflect.Value, keepReading bool, err error) {
@@ -435,43 +272,4 @@ func (server *Server) readRequestHeader(codec ServerCodec) (svc *service, mtype 
 		err = errors.New("rpc: can't find method " + req.ServiceMethod)
 	}
 	return
-}
-
-// Accept accepts connections on the listener and serves requests
-// for each incoming connection. Accept blocks until the listener
-// return a non-nil error. The caller typically invokes Accept in
-// a go statement.
-func (s *Server) Accept(lis net.Listener) {
-	for {
-		conn, err := lis.Accept()
-		if err != nil {
-			return
-		}
-		if s.options.Protocol == PROTO_BAIDU_STD {
-			var codec = &BaiduStdServerCodec{
-				rwc: conn,
-			}
-			go s.ServeCodec(codec)
-		} else {
-			go s.ServeConn(conn)
-		}
-	}
-}
-
-// A ServerCodec implements reading of RPC requests and writing of
-// RPC responses for the server side of an RPC session.
-// The server calls ReadRequestHeader and ReadRequestBody in pairs
-// to read requests from the connection, and it calls WriteResponse to
-// Write a response back. The server calls Close when finished with the
-// connection. ReadRequestBody may be called with a nil
-// argument to force the body of the request to be read and discarded.
-type ServerCodec interface {
-	// ReadRequest*
-	ReadRequestHeader(*Request) error
-	ReadRequestBody(interface{}) error
-
-	// WriteResponse must be safe for concurrent use by multiple goroutines.
-	WriteResponse(*Response, interface{}) error
-
-	Close() error
 }
