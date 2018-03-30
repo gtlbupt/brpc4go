@@ -4,6 +4,7 @@ import (
 	"./src/util"
 	"errors"
 	"reflect"
+	"sync"
 	"sync/atomic"
 )
 
@@ -51,6 +52,26 @@ func (s *service) Install(v interface{}) error {
 	}
 
 	return nil
+}
+
+func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, mtype *methodType, req *Request, argv, replyv reflect.Value, codec ServerCodec) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
+	atomic.AddInt64(&mtype.numCalls, 1)
+
+	function := mtype.method.Func
+	// Invoke the method, providing a new value for the reply
+	returnValues := function.Call([]reflect.Value{s.rcvr, argv, replyv})
+	// The return value for the method is an error.
+	errInter := returnValues[0].Interface()
+	errMsg := ""
+	if errInter != nil {
+		errMsg = errInter.(error).Error()
+	}
+	server.sendResponse(sending, req, replyv.Interface(), codec, errMsg)
+	server.freeRequest(req)
 }
 
 func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {

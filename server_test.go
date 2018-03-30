@@ -67,6 +67,13 @@ func TestNewServer(t *testing.T) {
 			t.Errorf("server.AddService(AddServiceImpl) = %v", err)
 		}
 	})
+	t.Run("AddServiceDup", func(t *testing.T) {
+		var serviceImpl = new(Arith)
+		var err = srv.AddService(serviceImpl)
+		if err == nil {
+			t.Errorf("server.AddService(AddServiceImpl) = %v, expect = DupService", err)
+		}
+	})
 	t.Run("Start", func(t *testing.T) {
 		var err = srv.Start()
 		if err != nil {
