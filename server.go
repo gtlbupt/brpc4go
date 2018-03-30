@@ -3,8 +3,6 @@ package brpc
 
 import (
 	util "./src/util"
-	"bufio"
-	"encoding/gob"
 	"errors"
 	"io"
 	"log"
@@ -74,7 +72,7 @@ func (srv *Server) startImpl() {
 			}
 			go srv.ServeCodec(codec)
 		} else {
-			go srv.ServeConn(conn)
+			return
 		}
 	}
 }
@@ -101,22 +99,6 @@ func (s *Server) sendResponse(sending *sync.Mutex, req *Request, reply interface
 	sending.Unlock()
 
 	s.freeResponse(resp)
-}
-
-// ServeConn runs the Server on a single connection.
-// ServeConn blocks, serving the connection until the client hangs up.
-// The caller typically invokes ServeConn in a go statement.
-// ServeConn uses the gob wire format (see package gob) on the
-// connection. To Use an alternate codec, use ServeCodec
-func (server *Server) ServeConn(conn io.ReadWriteCloser) {
-	buf := bufio.NewWriter(conn)
-	srv := &gobServerCodec{
-		rwc:    conn,
-		dec:    gob.NewDecoder(conn),
-		enc:    gob.NewEncoder(buf),
-		encBuf: buf,
-	}
-	server.ServeCodec(srv)
 }
 
 func (srv *Server) ServeCodec(codec ServerCodec) {
