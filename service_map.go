@@ -74,7 +74,7 @@ func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, 
 	server.freeRequest(req)
 }
 
-func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
+func OldSuitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 	methods := make(map[string]*methodType)
 	for m := 0; m < typ.NumMethod(); m++ {
 		method := typ.Method(m)
@@ -112,6 +112,57 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 		}
 
 		if returnType := mtype.Out(0); returnType != typeOfError {
+			continue
+		}
+		methods[mname] = &methodType{method: method, ArgType: argType, ReplyType: replyType}
+	}
+	return methods
+}
+
+func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
+	methods := make(map[string]*methodType)
+	for m := 0; m < typ.NumMethod(); m++ {
+		method := typ.Method(m)
+		mtype := method.Type
+		mname := method.Name
+
+		// Method must be exported
+		if method.PkgPath != "" {
+			continue
+		}
+
+		// Method needs three ins: receiver, context.Context, *args,
+		if mtype.NumIn() != 3 {
+			continue
+		}
+
+		ctxType := mtype.In(1)
+		if !util.IsContextType(ctxType) {
+			continue
+		}
+
+		argType := mtype.In(2)
+
+		if !util.IsExportedOrBuiltinType(argType) {
+			continue
+		}
+
+		// ReplayType, ReturnType
+		if mtype.NumOut() != 2 {
+			continue
+		}
+
+		replyType := mtype.Out(0)
+		if replyType.Kind() != reflect.Ptr {
+			continue
+		}
+
+		// ReplyType Must be exported
+		if !util.IsExportedOrBuiltinType(replyType) {
+			continue
+		}
+
+		if returnType := mtype.Out(1); returnType != typeOfError {
 			continue
 		}
 		methods[mname] = &methodType{method: method, ArgType: argType, ReplyType: replyType}

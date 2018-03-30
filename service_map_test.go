@@ -1,6 +1,7 @@
 package brpc
 
 import (
+	"context"
 	"testing"
 )
 
@@ -39,8 +40,8 @@ func (x *TestClassOneMethod) add() bool {
 type TestClassOneMethodExport struct {
 }
 
-func (x *TestClassOneMethodExport) Add(a *int, b *int) error {
-	return nil
+func (x *TestClassOneMethodExport) Echo(ctx context.Context, a *int) (*int, error) {
+	return a, nil
 }
 
 func TestServiceInstall(t *testing.T) {
@@ -80,5 +81,13 @@ func TestServiceInstall(t *testing.T) {
 			t.Errorf("service.Install(%T) = %v, expect = nil",
 				s, err)
 		}
+	})
+}
+
+func TestServiceCall(t *testing.T) {
+	t.Run("Call", func(t *testing.T) {
+		var srv = NewService()
+		var s = &TestClassOneMethodExport{}
+		srv.Install(s)
 	})
 }

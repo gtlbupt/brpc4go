@@ -1,6 +1,7 @@
 package brpc
 
 import (
+	"context"
 	"errors"
 	"net"
 	"testing"
@@ -23,15 +24,17 @@ func (t *Arith) Multiply(args *Args, reply *int) error {
 	return nil
 }
 
-func (t *Arith) Divide(args *Args, quo *Quotient) error {
+func (t *Arith) Divide(ctx context.Context, args *Args) (quo *Quotient, err error) {
 	if args.B == 0 {
-		return errors.New("divide by zero")
+		err = errors.New("divide by zero")
+		return
 	}
+	quo = &Quotient{}
 
 	quo.Quo = args.A / args.B
 	quo.Rem = args.A % args.B
 
-	return nil
+	return
 }
 
 func newFakeServer() (*Server, error) {

@@ -20,3 +20,7 @@ func IsExportedOrBuiltinType(t reflect.Type) bool {
 	// so we need to check the type name as well
 	return isExported(t.Name()) || t.PkgPath() == ""
 }
+
+func IsContextType(t reflect.Type) bool {
+	return true
+}
