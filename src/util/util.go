@@ -1,4 +1,4 @@
-package brpc
+package util
 
 import (
 	"reflect"
@@ -11,7 +11,7 @@ func isExported(name string) bool {
 	return unicode.IsUpper(rune)
 }
 
-func isExportedOrBuiltinType(t reflect.Type) bool {
+func IsExportedOrBuiltinType(t reflect.Type) bool {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}

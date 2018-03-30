@@ -1,8 +1,10 @@
 package brpc
 
 import (
+	"./src/util"
 	"errors"
 	"reflect"
+	"sync/atomic"
 )
 
 type methodType struct {
@@ -24,7 +26,9 @@ type service struct {
 }
 
 func NewService() *service {
-	return new(service)
+	return &service{
+		method: make(map[string]*methodType),
+	}
 }
 
 func (s *service) GetName() string {
@@ -68,7 +72,7 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 
 		argType := mtype.In(1)
 
-		if !isExportedOrBuiltinType(argType) {
+		if !util.IsExportedOrBuiltinType(argType) {
 			continue
 		}
 
@@ -78,7 +82,7 @@ func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
 		}
 
 		// ReplyType Must be exported
-		if !isExportedOrBuiltinType(replyType) {
+		if !util.IsExportedOrBuiltinType(replyType) {
 			continue
 		}
 

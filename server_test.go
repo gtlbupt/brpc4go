@@ -74,3 +74,6 @@ func TestNewServer(t *testing.T) {
 		}
 	})
 }
+
+func TestService(t *testing.T) {
+}
