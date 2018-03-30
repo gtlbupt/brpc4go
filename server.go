@@ -2,13 +2,13 @@
 package brpc
 
 import (
+	util "./src/util"
 	"bufio"
 	"encoding/gob"
 	"errors"
 	"io"
 	"log"
 	"reflect"
-	"strings"
 	"sync"
 )
 
@@ -233,13 +233,10 @@ func (server *Server) readRequestHeader(codec ServerCodec) (svc *service, mtype 
 
 	keepReading = true
 
-	dot := strings.LastIndex(req.ServiceMethod, ".")
-	if dot < 0 {
-		err = errors.New("rpc: service/Method request ill-formed: " + req.ServiceMethod)
+	serviceName, methodName, err := util.ExtractServiceAndMethod(req.ServiceMethod)
+	if err != nil {
 		return
 	}
-	serviceName := req.ServiceMethod[:dot]
-	methodName := req.ServiceMethod[dot+1:]
 
 	svci, ok := server.serviceMap.Load(serviceName)
 	if !ok {

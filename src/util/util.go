@@ -1,7 +1,9 @@
 package util
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -23,4 +25,17 @@ func IsExportedOrBuiltinType(t reflect.Type) bool {
 
 func IsContextType(t reflect.Type) bool {
 	return true
+}
+
+func ExtractServiceAndMethod(ServiceMethod string) (serviceName string, methodName string, err error) {
+	var sep = "."
+	dot := strings.LastIndex(ServiceMethod, sep)
+	if dot < 0 {
+		err = errors.New("rpc: service/Method request ill-formed: " + ServiceMethod)
+		return
+	}
+	serviceName = ServiceMethod[:dot]
+	methodName = ServiceMethod[dot+1:]
+
+	return
 }
