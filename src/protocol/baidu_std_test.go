@@ -289,3 +289,26 @@ func rpcMetaEqual(lhs *RpcMeta, rhs *RpcMeta) bool {
 		return true
 	}
 }
+
+func TestMarshal(t *testing.T) {
+	var data = []byte("{}")
+	var meta = makeTestRpcRequestMeta()
+	var p = &BaiduRpcStdProtocol{
+		Meta: RpcMeta{
+			Request: &meta,
+		},
+		Data: data,
+	}
+	var buff, err = p.Marshal()
+	if err != nil {
+		t.Errorf("BaiduRpcStdProtocol.Marshal() = %v, expect nil",
+			err)
+	}
+
+	var p1 = &BaiduRpcStdProtocol{}
+	err = p1.Unmarshal(buff)
+	if err != nil {
+		t.Errorf("BaiduRpcStdProtocol.Unmarshal() = %v, expect nil",
+			err)
+	}
+}
