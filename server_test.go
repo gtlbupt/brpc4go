@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	proto "github.com/golang/protobuf/proto"
+	"io"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -61,6 +63,7 @@ type EchoService struct {
 }
 
 func (s *EchoService) Echo(ctx context.Context, req *example.EchoRequest) (*example.EchoResponse, error) {
+	log.Printf("[message:%s]", req.GetMessage())
 	var resp = &example.EchoResponse{}
 	resp.Message = req.Message
 	return resp, nil
@@ -109,7 +112,7 @@ func clientSend(addr string) ([]byte, error) {
 	var methodName = "Echo"
 	body, err := proto.Marshal(
 		&example.EchoResponse{
-			Message: proto.String("Hello, World"),
+			Message: proto.String("Hello, World!!!"),
 		})
 	var data = baidu_std.MakeTestRequest(
 		serviceName,
@@ -119,6 +122,25 @@ func clientSend(addr string) ([]byte, error) {
 	n, err := conn.Write(data)
 	if err != nil || n != len(data) {
 		return nil, err
+	}
+	{
+		var req = &baidu_std.BaiduRpcStdProtocol{}
+
+		var l = req.Header.GetHeaderLen()
+		var buf = make([]byte, l)
+		if n, err := io.ReadAtLeast(conn, buf, l); err != nil || n < l {
+			log.Printf("[err:%v]", err)
+		}
+		var metaSize = req.Header.GetMetaSize()
+		buf = make([]byte, metaSize)
+		if n, err := io.ReadAtLeast(conn, buf, metaSize); err != nil || n < metaSize {
+			log.Printf("[err:%v]", err)
+		}
+
+		if err := proto.Unmarshal(buf, &req.Meta); err != nil {
+			log.Printf("[err:%v]", err)
+		}
+		log.Printf("[meta:%v]", req.Meta)
 	}
 	return nil, nil
 }
