@@ -2,6 +2,7 @@ package brpc
 
 import (
 	baidu_std "./src/protocol"
+	"bytes"
 	"testing"
 )
 
@@ -53,8 +54,24 @@ func TestNewBaiduStdServerCodec(t *testing.T) {
 	})
 
 	t.Run("ReadRequestHeader", func(t *testing.T) {
-	})
-}
+		var data = baidu_std.MakeTestRequest()
+		var buffer = bytes.NewBuffer(data)
+		var codec = &BaiduStdServerCodec{
+			r: buffer,
+		}
 
-func TestBaiduStdServerCodecAddRequest(t *testing.T) {
+		var r = Request{}
+		var err = codec.ReadRequestHeader(&r)
+		if err != nil {
+			t.Errorf("codec.ReadRequestHeader(%T) = %v, expect = nil",
+				r, err)
+		}
+		if r.Seq != 1 {
+			t.Errorf("r.Seq = %d, expect = 1",
+				r.Seq)
+		}
+		if r.ServiceMethod != "LogicService.JsonCmd" {
+			t.Errorf("r.SM = %v", r.ServiceMethod)
+		}
+	})
 }

@@ -43,7 +43,7 @@ func (c *BaiduStdServerCodec) ReadRequestHeader(r *Request) error {
 	var req = &baidu_std.BaiduRpcStdProtocol{}
 
 	var l = req.Header.GetHeaderLen()
-	var buf = make([]byte, 0, l)
+	var buf = make([]byte, l)
 	if n, err := io.ReadAtLeast(c.r, buf, l); err != nil || n < l {
 		return err
 	}
@@ -53,7 +53,7 @@ func (c *BaiduStdServerCodec) ReadRequestHeader(r *Request) error {
 	}
 
 	var metaSize = req.Header.GetMetaSize()
-	buf = make([]byte, 0, metaSize)
+	buf = make([]byte, metaSize)
 	if n, err := io.ReadAtLeast(c.r, buf, metaSize); err != nil || n < metaSize {
 		return err
 	}
@@ -66,7 +66,8 @@ func (c *BaiduStdServerCodec) ReadRequestHeader(r *Request) error {
 	if request == nil {
 		return errors.New("Bad Request")
 	}
-	r.ServiceMethod = fmt.Sprintf("%s.%s", request.ServiceName, request.MethodName)
+	r.ServiceMethod = fmt.Sprintf("%s.%s",
+		request.GetServiceName(), request.GetMethodName())
 	r.Seq = c.AddRequest(req)
 
 	return nil

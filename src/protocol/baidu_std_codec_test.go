@@ -2,6 +2,8 @@ package baidu_std
 
 /*
 import (
+	"bytes"
+	proto "github.com/golang/protobuf/proto"
 	"testing"
 )
 
@@ -99,5 +101,4 @@ func (s *StubReadWriteCloser) Write(p []byte) (n int, err error) {
 func (s *StubReadWriteCloser) Close() error {
 	return nil
 }
-
 */
