@@ -74,7 +74,7 @@ func TestNewBaiduStdServerCodec(t *testing.T) {
 				t.Errorf("r.Seq = %d, expect = 1",
 					r.Seq)
 			}
-			if r.ServiceMethod != "LogicService.JsonCmd" {
+			if r.ServiceMethod != "EchoService.Echo" {
 				t.Errorf("r.SM = %v", r.ServiceMethod)
 			}
 		})

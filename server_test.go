@@ -96,7 +96,7 @@ func TestNewServer(t *testing.T) {
 			t.Errorf("server.Start() = %v", err)
 		}
 		clientSend(addr)
-		time.Sleep(18 * time.Second)
+		time.Sleep(1 * time.Second)
 	})
 }
 
