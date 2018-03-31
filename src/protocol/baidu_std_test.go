@@ -291,8 +291,10 @@ func rpcMetaEqual(lhs *RpcMeta, rhs *RpcMeta) bool {
 }
 
 func TestMarshal(t *testing.T) {
+	var serviceName = "EchoService"
+	var methodName = "Echo"
 	var data = []byte("{}")
-	var meta = makeTestRpcRequestMeta()
+	var meta = makeTestRpcRequestMeta(serviceName, methodName)
 	var p = &BaiduRpcStdProtocol{
 		Meta: RpcMeta{
 			Request: &meta,

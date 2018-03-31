@@ -68,6 +68,7 @@ func (srv *Server) startImpl() {
 		}
 		if srv.options.Protocol == PROTO_BAIDU_STD {
 			var codec = &BaiduStdServerCodec{
+				r:   conn,
 				rwc: conn,
 			}
 			go srv.ServeCodec(codec)

@@ -2,10 +2,13 @@ package brpc
 
 import (
 	example "./example"
+	baidu_std "./src/protocol"
 	"context"
 	"errors"
+	proto "github.com/golang/protobuf/proto"
 	"net"
 	"testing"
+	"time"
 )
 
 type Args struct {
@@ -38,10 +41,9 @@ func (t *Arith) Divide(ctx context.Context, args *Args) (quo *Quotient, err erro
 	return
 }
 
-func newFakeServer() (*Server, error) {
+func newFakeServer(addr string) (*Server, error) {
 	var protocol = "tcp"
-	var port = ":8080"
-	ln, err := net.Listen(protocol, port)
+	ln, err := net.Listen(protocol, addr)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +67,8 @@ func (s *EchoService) Echo(ctx context.Context, req *example.EchoRequest) (*exam
 }
 
 func TestNewServer(t *testing.T) {
-	var srv, err = newFakeServer()
+	var addr = ":8080"
+	var srv, err = newFakeServer(addr)
 	if err != nil {
 		t.Errorf("newFakeServer() = %v", err)
 	}
@@ -92,5 +95,30 @@ func TestNewServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("server.Start() = %v", err)
 		}
+		clientSend(addr)
+		time.Sleep(18 * time.Second)
 	})
+}
+
+func clientSend(addr string) ([]byte, error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	var serviceName = "EchoService"
+	var methodName = "Echo"
+	body, err := proto.Marshal(
+		&example.EchoResponse{
+			Message: proto.String("Hello, World"),
+		})
+	var data = baidu_std.MakeTestRequest(
+		serviceName,
+		methodName,
+		body,
+	)
+	n, err := conn.Write(data)
+	if err != nil || n != len(data) {
+		return nil, err
+	}
+	return nil, nil
 }

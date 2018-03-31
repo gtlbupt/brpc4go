@@ -81,7 +81,7 @@ func (c *BaiduStdServerCodec) ReadRequestBody(request interface{}) error {
 		return err
 	}
 
-	var msg proto.Message
+	var msg = request.(proto.Message)
 	if err := proto.Unmarshal(buf, msg); err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func (c *BaiduStdServerCodec) ReadRequestBody(request interface{}) error {
 func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) error {
 	var seq = resp.Seq
 	var reqInter, ok = c.reqMap.Load(seq)
-	var req = reqInter.(baidu_std.BaiduRpcStdProtocol)
+	var req = reqInter.(*baidu_std.BaiduRpcStdProtocol)
 
 	if !ok {
 		return errors.New("Bad Response")

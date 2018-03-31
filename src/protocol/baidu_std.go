@@ -62,9 +62,7 @@ func (p *BaiduRpcStdProtocol) Unmarshal(data []byte) error {
 	return nil
 }
 
-func makeTestRpcRequestMeta() RpcRequestMeta {
-	var serviceName = "LogicService"
-	var methodName = "JsonCmd"
+func makeTestRpcRequestMeta(serviceName string, methodName string) RpcRequestMeta {
 	var logid = int64(102340)
 	var traceId = int64(12345)
 	var spanId = int64(23456)
@@ -79,15 +77,16 @@ func makeTestRpcRequestMeta() RpcRequestMeta {
 	}
 	return req
 }
-func MakeTestRequest() []byte {
-	var req = makeTestRpcRequestMeta()
+
+func MakeTestRequest(serviceName string, methodName string, body []byte) []byte {
+	var req = makeTestRpcRequestMeta(serviceName, methodName)
 
 	var rpcMeta = RpcMeta{
 		Request: &req,
 	}
 	var p = &BaiduRpcStdProtocol{
 		Meta: rpcMeta,
-		Data: []byte("{}"),
+		Data: body,
 	}
 	var data, _ = p.Marshal()
 	return data

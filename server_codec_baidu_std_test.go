@@ -54,7 +54,10 @@ func TestNewBaiduStdServerCodec(t *testing.T) {
 	})
 
 	t.Run("ReadRequestHeader", func(t *testing.T) {
-		var data = baidu_std.MakeTestRequest()
+		var serviceName = "EchoService"
+		var methodName = "Echo"
+		var body = []byte("{}")
+		var data = baidu_std.MakeTestRequest(serviceName, methodName, body)
 		var buffer = bytes.NewBuffer(data)
 		var codec = &BaiduStdServerCodec{
 			r: buffer,

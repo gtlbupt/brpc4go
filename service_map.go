@@ -2,6 +2,7 @@ package brpc
 
 import (
 	"./src/util"
+	"context"
 	"errors"
 	"reflect"
 	"sync"
@@ -63,9 +64,11 @@ func (s *service) call(server *Server, sending *sync.Mutex, wg *sync.WaitGroup, 
 
 	function := mtype.method.Func
 	// Invoke the method, providing a new value for the reply
-	returnValues := function.Call([]reflect.Value{s.rcvr, argv, replyv})
+	var ctx = reflect.ValueOf(context.TODO())
+	returnValues := function.Call([]reflect.Value{s.rcvr, ctx, argv})
 	// The return value for the method is an error.
-	errInter := returnValues[0].Interface()
+	replyv = returnValues[0]
+	errInter := returnValues[1].Interface()
 	errMsg := ""
 	if errInter != nil {
 		errMsg = errInter.(error).Error()
