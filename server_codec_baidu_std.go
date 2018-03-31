@@ -128,7 +128,6 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 	c.rwc.Write(metaBuf)
 	c.rwc.Write(bodyBuf)
 	return nil
-	return nil
 }
 
 func (c *BaiduStdServerCodec) Close() error {
