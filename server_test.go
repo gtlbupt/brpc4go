@@ -1,6 +1,7 @@
 package brpc
 
 import (
+	example "./example"
 	"context"
 	"errors"
 	"net"
@@ -54,6 +55,15 @@ func newFakeServer() (*Server, error) {
 	return srv, nil
 }
 
+type EchoService struct {
+}
+
+func (s *EchoService) Echo(ctx context.Context, req *example.EchoRequest) (*example.EchoResponse, error) {
+	var resp = &example.EchoResponse{}
+	resp.Message = req.Message
+	return resp, nil
+}
+
 func TestNewServer(t *testing.T) {
 	var srv, err = newFakeServer()
 	if err != nil {
@@ -64,14 +74,14 @@ func TestNewServer(t *testing.T) {
 		t.Errorf("NewServer() = nil")
 	}
 	t.Run("AddService", func(t *testing.T) {
-		var serviceImpl = new(Arith)
+		var serviceImpl = new(EchoService)
 		var err = srv.AddService(serviceImpl)
 		if err != nil {
 			t.Errorf("server.AddService(AddServiceImpl) = %v", err)
 		}
 	})
 	t.Run("AddServiceDup", func(t *testing.T) {
-		var serviceImpl = new(Arith)
+		var serviceImpl = new(EchoService)
 		var err = srv.AddService(serviceImpl)
 		if err == nil {
 			t.Errorf("server.AddService(AddServiceImpl) = %v, expect = DupService", err)
