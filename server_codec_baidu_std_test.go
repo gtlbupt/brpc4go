@@ -62,16 +62,21 @@ func TestNewBaiduStdServerCodec(t *testing.T) {
 
 		var r = Request{}
 		var err = codec.ReadRequestHeader(&r)
-		if err != nil {
-			t.Errorf("codec.ReadRequestHeader(%T) = %v, expect = nil",
-				r, err)
-		}
-		if r.Seq != 1 {
-			t.Errorf("r.Seq = %d, expect = 1",
-				r.Seq)
-		}
-		if r.ServiceMethod != "LogicService.JsonCmd" {
-			t.Errorf("r.SM = %v", r.ServiceMethod)
-		}
+		t.Run("Header", func(t *testing.T) {
+			if err != nil {
+				t.Errorf("codec.ReadRequestHeader(%T) = %v, expect = nil",
+					r, err)
+			}
+			if r.Seq != 1 {
+				t.Errorf("r.Seq = %d, expect = 1",
+					r.Seq)
+			}
+			if r.ServiceMethod != "LogicService.JsonCmd" {
+				t.Errorf("r.SM = %v", r.ServiceMethod)
+			}
+		})
+		// err = codec.ReadRequestBody(&r)
+		t.Run("Body", func(t *testing.T) {
+		})
 	})
 }

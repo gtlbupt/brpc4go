@@ -76,7 +76,7 @@ func (c *BaiduStdServerCodec) ReadRequestHeader(r *Request) error {
 func (c *BaiduStdServerCodec) ReadRequestBody(request interface{}) error {
 	var req = c.currReq
 	var bodySize = req.Header.GetBodySize()
-	var buf = make([]byte, 0, bodySize)
+	var buf = make([]byte, bodySize)
 	if n, err := io.ReadAtLeast(c.r, buf, bodySize); err != nil || n < bodySize {
 		return err
 	}
