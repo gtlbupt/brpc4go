@@ -125,26 +125,6 @@ func (srv *Server) ServeCodec(codec ServerCodec) {
 	codec.Close()
 }
 
-// ServeRequest is like ServeCodec but synchronously serves a single request.
-// It does not close the codec upon completion.
-func (server *Server) ServeRequest(codec ServerCodec) error {
-	sending := new(sync.Mutex)
-	service, mtype, req, argv, replyv, keepReading, err := server.readRequest(codec)
-	if err != nil {
-		if !keepReading {
-			return err
-		}
-
-		if req != nil {
-			server.sendResponse(sending, req, invalidRequest, codec, err.Error())
-			server.freeRequest(req)
-		}
-		return err
-	}
-	service.call(server, sending, nil, mtype, req, argv, replyv, codec)
-	return nil
-}
-
 func (server *Server) getRequest() *Request {
 	return server.freeReq.Get()
 }
