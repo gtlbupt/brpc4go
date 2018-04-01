@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 const (
@@ -59,4 +60,8 @@ func (h *BaiduRpcStdProtocolHeader) Unmarshal(data []byte) error {
 	h.metaSize = binary.BigEndian.Uint32(data[8:12])
 
 	return nil
+}
+
+func (h *BaiduRpcStdProtocolHeader) String() string {
+	return fmt.Sprintf("[meta_size:%d][body_size:%d]", h.metaSize, h.bodySize)
 }

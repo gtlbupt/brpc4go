@@ -131,6 +131,9 @@ func clientSend(addr string) ([]byte, error) {
 		if n, err := io.ReadAtLeast(conn, buf, l); err != nil || n < l {
 			log.Printf("[err:%v]", err)
 		}
+		req.Header.Unmarshal(buf)
+		log.Printf("[header:%s]", req.Header.String())
+
 		var metaSize = req.Header.GetMetaSize()
 		buf = make([]byte, metaSize)
 		if n, err := io.ReadAtLeast(conn, buf, metaSize); err != nil || n < metaSize {
@@ -141,6 +144,26 @@ func clientSend(addr string) ([]byte, error) {
 			log.Printf("[err:%v]", err)
 		}
 		log.Printf("[meta:%v]", req.Meta)
+
+		var bodySize = req.Header.GetBodySize()
+		buf = make([]byte, bodySize)
+		if n, err := io.ReadAtLeast(conn, buf, bodySize); err != nil || n < bodySize {
+			log.Printf("[ReadMetaSize.err:%v]", err)
+		}
+
+		log.Printf("[body:%s]", string(buf))
+		var echoRes = &example.EchoResponse{}
+		if err := UnmarshalEchoResponse(buf, echoRes); err != nil {
+			log.Printf("[UnmarshalEchoResponse.err:%v]", err)
+		}
 	}
 	return nil, nil
+}
+
+func UnmarshalEchoResponse(data []byte, v interface{}) error {
+	msg := v.(proto.Message)
+	msg.Reset()
+
+	err := proto.Unmarshal(data, msg)
+	return err
 }

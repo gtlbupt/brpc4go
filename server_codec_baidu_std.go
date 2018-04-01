@@ -6,6 +6,7 @@ import (
 	"fmt"
 	proto "github.com/golang/protobuf/proto"
 	"io"
+	"log"
 	"sync"
 	"sync/atomic"
 )
@@ -98,6 +99,13 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 		return errors.New("Bad Response")
 	}
 
+	var msg = body.(proto.Message)
+	log.Printf("[WriteResponse.Body:%v]", msg)
+	bodyBuf, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
 	var respRpcMeta = baidu_std.RpcMeta{
 		Response: &baidu_std.RpcResponseMeta{
 			ErrorCode: proto.Int32(0),
@@ -105,13 +113,8 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 		CorrelationId: req.Meta.CorrelationId,
 	}
 
+	log.Printf("[WriteResponse.Meta:%v]", respRpcMeta)
 	metaBuf, err := proto.Marshal(&respRpcMeta)
-	if err != nil {
-		return err
-	}
-
-	var msg = body.(proto.Message)
-	bodyBuf, err := proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -119,6 +122,7 @@ func (c *BaiduStdServerCodec) WriteResponse(resp *Response, body interface{}) er
 	var respHeader = baidu_std.BaiduRpcStdProtocolHeader{}
 	respHeader.SetBodySize(len(bodyBuf))
 	respHeader.SetMetaSize(len(metaBuf))
+	log.Printf("[header:%v]", respHeader.String())
 
 	headBuf, err := respHeader.Marshal()
 	if err != nil {
