@@ -2,39 +2,15 @@ package brpc
 
 import (
 	baidu_std "./src/protocol"
-	"context"
 	"errors"
 	proto "github.com/golang/protobuf/proto"
 	"io"
 	"sync"
-	"time"
 )
-
-type ChannelOptions struct {
-	addr               string
-	lb                 string
-	connect_timeout_ms time.Duration
-	timeout_ms         time.Duration
-	max_retry          int
-}
-
-type Channel struct {
-	options ChannelOptions
-}
-
-func NewChannel(options ChannelOptions) *Channel {
-	return &Channel{
-		options: options,
-	}
-}
 
 type MethodDescriptor struct {
 	service string
 	method  string
-}
-
-type Controller struct {
-	ctx context.Context
 }
 
 func (c *Channel) CallMethod(
