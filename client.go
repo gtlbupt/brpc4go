@@ -8,20 +8,8 @@ import (
 	"sync"
 )
 
-type MethodDescriptor struct {
-	service string
-	method  string
-}
-
-func (c *Channel) CallMethod(
-	md MethodDescriptor,
-	cntl Controller,
-	request *proto.Message,
-	response *proto.Message,
-	done chan<- struct{}) {
-}
-
 type ClientCodec interface {
+	// WriteRequest must be safe for concurrent use by multiple goroutine
 	WriteRequest(*Request, interface{}) error
 	ReadResponseHeader(*Response) error
 	ReadResponseBody(interface{}) error
