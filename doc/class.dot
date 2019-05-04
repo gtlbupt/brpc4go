@@ -1,0 +1,70 @@
+digraph G {
+    fontname = "Bitstream Vera Sans"    
+    fontsize = 8
+
+    rank = lr
+
+    node [
+        shape = "record"
+    ]
+    {
+        rankdir = LR;
+    }
+
+    edge [
+    ]
+
+    ChannelOptions [
+        label = "{ChannelOption | +log_id \l+timeout_ms \l+max_retry \l}"
+    ]
+
+    Channel [
+        label = "{Channel|Init(addr, lb, ChannelOptions): int\lCallMethod(ServiceAndMethod, *Controller, *Request, *Response, *Done): int|+lb LoadBalancer\l+options ChannelOptions\l}"
+    ]
+
+    Controller [
+        label = "{Controller|Failed(): bool;\lErrorCode(): int;\lErrorText(): string|+log_id\l+timeout_ms\l+max_retry\l}"
+    ]
+
+    LoadBalancer [
+        label = "{LoadBalancer|Init(addr, lb, ChannelOptions): int\lSelectServer(ServerNode): int\lUpdateServer([]ServerNode): int\l}"
+    ]
+
+    NameService [
+        label = "{NameService|GetServerNodeList([]ServerNode): int\l}";
+    ]
+
+    SocketMap [
+        label = "{SocketMap|Create(): *Socket\lRecycle(*Socket): int\lDestroy(*Socket): int\l}";
+    ]
+
+    Socket [
+        label = "{Socket|Read(): int\lWrite():int\n}";
+    ]
+
+    Codec [
+        label = "{Codec(aka Protocol)|Encode(): int\l:Decode(net.Conn): int, []byte\l}";
+    ]
+
+    RPCStubs [
+        label = "{RPCStubs|map\<int,*RPCStub\>\l}";
+    ]
+
+    RPCStub [
+        label = "{RPCStub|+ServiceAndMethod\l+Controller\l+Request\l+Response\l+RPCDone\l}";
+    ]
+
+    RPCDone [
+        label = "{RPCDone|+done Chan bool\l+callback *function\l}";
+    ]
+
+    Channel -> ChannelOptions;
+    Channel -> LoadBalancer;
+    LoadBalancer -> NameService;
+    LoadBalancer -> SocketMap;
+    SocketMap -> Socket;
+    Socket -> Codec;
+    RPCStubs -> RPCStub;
+    RPCStub -> Controller;
+    RPCStub -> RPCDone;
+}
