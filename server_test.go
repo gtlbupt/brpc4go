@@ -5,6 +5,7 @@ import (
 	baidu_std "./src/protocol"
 	"context"
 	"errors"
+	"fmt"
 	proto "github.com/golang/protobuf/proto"
 	"io"
 	"log"
@@ -98,7 +99,42 @@ func TestNewServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("server.Start() = %v", err)
 		}
-		clientSend(addr)
+
+		t.Run("ClientSend", func(t *testing.T) {
+			clientSend(addr)
+		})
+		t.Run("ChannelCallMethod", func(t *testing.T) {
+			var addr = "list://127.0.0.1:8080"
+			var lb = "random"
+			var options = NewChannelOptions()
+			var channel = NewChannel()
+			if err := channel.Init(addr, lb, options); err != nil {
+				t.Errorf("Channel.Init(%s, %s, %v) = %v",
+					addr, lb, options, err)
+			}
+
+			var service = "EchoService"
+			var method = "Echo"
+			var md = MethodDescriptor{
+				service: service,
+				method:  method,
+			}
+			var cntl = Controller{}
+			var request = example.EchoRequest{
+				Message: proto.String("Hello, World"),
+			}
+			var response = example.EchoResponse{}
+			var done = make(chan bool)
+			var err = channel.CallMethod(
+				&md,
+				&cntl,
+				&request,
+				&response,
+				done)
+			log.Printf("channel.CallMethod() = %v", err)
+			<-done
+			fmt.Printf("EchoResponse=%v", response)
+		})
 		time.Sleep(1 * time.Second)
 	})
 }

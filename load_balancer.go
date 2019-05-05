@@ -2,6 +2,8 @@ package brpc
 
 import (
 	"fmt"
+	"log"
+	"sync"
 )
 
 type LoadBalancer interface {
@@ -10,6 +12,7 @@ type LoadBalancer interface {
 }
 
 type RandomLoadBalancer struct {
+	sync.RWMutex
 	ns    NameService
 	codec ProtocolCodec
 
@@ -28,6 +31,7 @@ func (lb *RandomLoadBalancer) Init(options *ChannelOptions) error {
 	for _, node := range nodes {
 
 		socket, err := CreateSocket(node, lb.codec, options)
+		log.Printf("CreateSocket(%v) = %v", node, err)
 
 		// Put
 		lb.sockets[node.ToString()] = socket
@@ -40,11 +44,28 @@ func (lb *RandomLoadBalancer) Init(options *ChannelOptions) error {
 		}
 	}
 
+	log.Printf("[total:%d][health:%d][unhealth:%d]\n",
+		len(lb.total_nodes),
+		len(lb.health_nodes),
+		len(lb.unhealth_nodes))
+
 	return nil
 }
 
 func (lb *RandomLoadBalancer) SelectServer() (*Socket, error) {
-	return nil, nil
+	lb.Lock()
+	defer lb.Unlock()
+	return lb.selectServer()
+}
+
+func (lb *RandomLoadBalancer) selectServer() (*Socket, error) {
+	if len(lb.health_nodes) > 0 {
+		var node = lb.health_nodes[0]
+		var s = lb.sockets[node.ToString()]
+		return s, nil
+	} else {
+		return nil, fmt.Errorf("Not Available Server")
+	}
 }
 
 func NewRandomLoadBalancer(ns NameService, codec ProtocolCodec) LoadBalancer {

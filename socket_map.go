@@ -3,6 +3,7 @@ package brpc
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 type Socket struct {
 	sync.RWMutex
-	writeQueue chan *RPCRequest
+	writeQueue chan *RPCStub
 
 	closed chan bool
 	codec  ProtocolCodec
@@ -20,7 +21,7 @@ type Socket struct {
 	stubs map[int64]*RPCStub
 }
 
-func (s *Socket) WriteAsync(req *RPCRequest) {
+func (s *Socket) WriteAsync(req *RPCStub) {
 	s.writeQueue <- req
 }
 
@@ -31,13 +32,16 @@ func (s *Socket) WriteGoroutine() {
 		select {
 		case <-s.closed:
 			stopped = true
-		case req := <-s.writeQueue:
-			var data, err = s.codec.Encode(req)
+		case stub := <-s.writeQueue:
+			var data, err = s.codec.Encode(stub)
 			if err != nil {
+				stub.Controller().SetFailed(err)
+			} else {
+				s.Lock()
+				s.conn.Write(data)
+				s.Unlock()
 			}
-			s.Lock()
-			s.conn.Write(data)
-			s.Unlock()
+			log.Printf("Socket.WriteAsync()")
 		}
 	}
 }
@@ -51,23 +55,11 @@ func (s *Socket) ReadGoroutine() {
 	var stopped = false
 
 	for !stopped {
-		var resp = RPCResponse{}
-		err := s.codec.Decode(s.conn, &resp)
+		stub, err := s.codec.Decode(s.conn)
 		if err != nil {
 			break
 		}
-
-		var id = resp.CorelationId
-		s.Lock()
-		stub := s.stubs[id]
-		delete(s.stubs, id)
-		s.Unlock()
-		switch {
-		case stub == nil:
-			continue
-		default:
-			stub.Done()
-		}
+		stub.Done()
 	}
 
 	if err == io.EOF {
@@ -77,8 +69,11 @@ func (s *Socket) ReadGoroutine() {
 
 func NewSocket(conn net.Conn, codec ProtocolCodec) *Socket {
 	return &Socket{
-		codec: codec,
-		conn:  conn,
+		writeQueue: make(chan *RPCStub, 10000),
+		closed:     make(chan bool),
+		codec:      codec,
+		conn:       conn,
+		stubs:      make(map[int64]*RPCStub),
 	}
 }
 
@@ -87,7 +82,7 @@ func CreateSocket(node ServerNode, codec ProtocolCodec, options *ChannelOptions)
 	if options.IsTLS() {
 		return nil, fmt.Errorf("(TLS) not support now")
 	} else {
-		var addr = fmt.Sprintf("%s:port", node.Ip, node.Port)
+		var addr = fmt.Sprintf("%s:%d", node.Ip, node.Port)
 		var conn, err = net.DialTimeout("tcp", addr, options.timeout_ms*time.Millisecond)
 		if err != nil {
 			return nil, err

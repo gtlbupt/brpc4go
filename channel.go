@@ -63,12 +63,19 @@ func (c *Channel) Init(
 }
 
 func (c *Channel) CallMethod(
-	md MethodDescriptor,
-	cntl Controller,
-	request *proto.Message,
-	response *proto.Message,
-	done chan<- struct{}) {
+	md *MethodDescriptor,
+	cntl *Controller, request proto.Message, response proto.Message, done chan bool) error {
 
-	if done == nil {
+	// 1. Channel.SelectServer
+	// 2. Server.Send..
+	// 3. Recv
+	var stub = NewRPCStub(md, cntl, request, response, done)
+
+	var socket, err = c.lb.SelectServer()
+	if err != nil {
+		return err
 	}
+
+	socket.WriteAsync(stub)
+	return nil
 }

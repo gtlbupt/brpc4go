@@ -42,3 +42,6 @@ func TestChannelInit(t *testing.T) {
 		}
 	})
 }
+
+func TestChannelCallMethod(t *testing.T) {
+}
