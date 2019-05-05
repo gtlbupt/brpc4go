@@ -39,6 +39,7 @@ BEGIN {
 
 END {
     printf "type %s_Stub interface {\n", service_name;
+    printf "\tfunc Init(*Channel);\n";
     for (i = 0; i < cnt; i++) {
         printf "\tfunc %s(*Controller, \*%s, \*%s, *RPCDone);\n", method_names[i], req_names[i], resp_names[i];
     }
